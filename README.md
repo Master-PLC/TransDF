@@ -76,6 +76,7 @@ conda activate transdf
 conda install pytorch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0  pytorch-cuda=11.8 -c pytorch -c nvidia
 
 # if failed, try to install pytorch and torch-geometric dependencies using pip
+# in this situation, you may encounter cuml problem when using accelerated PCA decomposition
 # pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu118
 
 pip install https://data.pyg.org/whl/torch-2.4.0%2Bcu118/torch_cluster-1.6.3%2Bpt24cu118-cp310-cp310-linux_x86_64.whl
