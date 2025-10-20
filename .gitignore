@@ -188,7 +188,10 @@ dataset/
 /func
 
 /debug
-/analyze
+analyze/
+!analyze/Example/
+!analyze/__init__.py
+!analyze/tools.py
 
 /README_public.md
 

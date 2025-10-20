@@ -6,6 +6,7 @@ from itertools import cycle
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import yaml
 from exp.exp_basic import Exp_Basic
 from torch.func import functional_call
@@ -103,7 +104,7 @@ class HyperWeighting(nn.Module):
     def forward(self, batch_x, pred, target, return_weights=False):
         """ML3 Learned Loss Function"""
 
-        batch_x = batch_x.flatten(1).float().to(self.device)
+        batch_x = batch_x.flatten(1).float().to(pred.device)
         hyper_weights = self.hypernet(batch_x)
         if self.sample_attn:
             sample_weights = hyper_weights[:, -1:]  # [B, 1]
@@ -122,8 +123,8 @@ class HyperWeighting(nn.Module):
             loss_rec = (error * rec_weights.view(1, -1, 1)).mean()
             loss += self.rec_lambda * loss_rec
         else:
-            loss_rec = 1000
-            rec_weights = torch.ones(self.pred_len, device=self.device) / self.pred_len
+            loss_rec = torch.tensor(1000., device=self.device)
+            rec_weights = torch.ones(self.pred_len, device=self.device)
 
         if self.auxi_lambda:
             error = self.cal_auxi_loss(pred, target)  # [B, rank, D]
@@ -141,10 +142,13 @@ class HyperWeighting(nn.Module):
 
             loss += self.auxi_lambda * loss_auxi
         else:
-            loss_auxi = 1000
-            auxi_weights = torch.ones(self.rank, device=self.device) / self.rank
+            loss_auxi = torch.tensor(1000., device=self.device)
+            auxi_weights = torch.ones(self.rank, device=self.device)
 
         if return_weights:
+            with torch.no_grad():
+                rec_weights = rec_weights / self.pred_len; rec_weights = rec_weights.cpu().numpy()
+                auxi_weights = auxi_weights / self.rank; auxi_weights = auxi_weights.cpu().numpy()
             return loss, loss_rec, loss_auxi, rec_weights, auxi_weights
         return loss, loss_rec, loss_auxi
 
@@ -154,7 +158,7 @@ class HyperWeighting(nn.Module):
         if self.auxi_loss == 'MSE':
             loss_trans = (loss_trans.abs()**2).mean()
         elif self.auxi_loss == 'MAE':
-            loss_auxi = loss_trans.abs().mean()
+            loss_trans = loss_trans.abs().mean()
         return loss_tmp, loss_trans
 
 
@@ -461,9 +465,9 @@ class Exp_Long_Term_Forecast_META_ML3(Exp_Basic):
             self.writer.add_scalar(f'{self.pred_len}/vali/loss_rec', valid_loss_rec, self.epoch)
             self.writer.add_scalar(f'{self.pred_len}/vali/loss_auxi', valid_loss_auxi, self.epoch)
             if self.args.rec_lambda:
-                log_weight(self.writer, rec_weights.detach().cpu().numpy(), f'{self.pred_len}/rec_weights', self.epoch)
+                log_weight(self.writer, rec_weights, f'{self.pred_len}/rec_weights', self.epoch)
             if self.args.auxi_lambda:
-                log_weight(self.writer, auxi_weights.detach().cpu().numpy(), f'{self.pred_len}/auxi_weights', self.epoch)
+                log_weight(self.writer, auxi_weights, f'{self.pred_len}/auxi_weights', self.epoch)
 
             print(f"Epoch: {self.epoch} | Train Loss: {train_loss:.7f}, Tmp: {train_loss_tmp:.7f}, Trans: {train_loss_trans:.7f}, Rec: {train_loss_rec:.7f}, Auxi: {train_loss_auxi:.7f} | Valid Loss: {valid_loss:.7f}, Tmp: {valid_loss_tmp:.7f}, Trans: {valid_loss_trans:.7f}, Rec: {valid_loss_rec:.7f}, Auxi: {valid_loss_auxi:.7f}")
             early_stopping(valid_loss_tmp, self.model, path)
@@ -573,6 +577,7 @@ class Exp_Long_Term_Forecast_META_ML3(Exp_Basic):
             self.hyper_weighting.to(preds.device)
             loss, loss_rec, loss_auxi = self.hyper_weighting(inputs, preds, trues)
             _, loss_trans = self.hyper_weighting.get_normal_loss(preds, trues)
+        loss = loss.item(); loss_trans = loss_trans.item(); loss_rec = loss_rec.item(); loss_auxi = loss_auxi.item()
         print('{}\t| mse:{}, mae:{}, loss:{}, loss feq:{}, loss rec:{}, loss auxi:{}'.format(self.pred_len, mse, mae, loss, loss_trans, loss_rec, loss_auxi))
 
         self.writer.add_scalar(f'{self.pred_len}/test/mae', mae, self.epoch)

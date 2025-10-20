@@ -760,9 +760,11 @@ def pca_torch(data, pca_dim, pca_cache, use_weights=0, reinit=True, device='cpu'
 
     if reinit:
         mean, std = pca_cache.initializer  # shape: [T * D]
+        mean = mean.to(data.device); std = std.to(data.device)
         data = (data - mean) / std
 
     pca_components = pca_cache.components
+    pca_components = pca_components.to(data.device)
     if pca_dim == "all":
         # pca_components shape: [rank, T*D]
         rule_trans = 'bt,rt->br'
@@ -779,6 +781,7 @@ def pca_torch(data, pca_dim, pca_cache, use_weights=0, reinit=True, device='cpu'
     low_rank_data = torch.einsum(rule_trans, data, pca_components)
     if use_weights:
         weights = pca_cache.weights
+        weights = weights.to(data.device)
         if use_weights == 2:
             weights = torch.sqrt(weights)
         elif use_weights == 3:
