@@ -168,7 +168,8 @@ cython_debug/
 /checkpoints/
 /results/
 
-/dataset/
+dataset/
+!dataset/ETT-small/
 
 /result_long_term_forecast.txt
 /result_imputation.txt
@@ -192,3 +193,6 @@ cython_debug/
 /README_public.md
 
 /foo*
+
+pami_scripts/
+!pami_scripts/meta_tune/

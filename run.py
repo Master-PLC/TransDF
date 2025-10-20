@@ -107,7 +107,9 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
+    parser.add_argument('--warmup_steps', type=int, default=20)
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
+    parser.add_argument('--auxi_batch_size', type=int, default=1024, help='batch size of test input data')
     parser.add_argument('--test_batch_size', type=int, default=1, help='batch size of test input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
@@ -138,6 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--reinit', type=int, default=0, help="whether reinit for PCA")
     parser.add_argument('--dist_scale', type=float, default=0.1, help="scale factor for ot distance matrix")
     parser.add_argument('--use_weights', type=int, default=0, help="use pca weights or not")
+    parser.add_argument('--load_from_disk', type=str, default="")
 
     # CCA
     parser.add_argument('--align_type', type=int, default=0, help='alignment type; 0: mean')
@@ -213,7 +216,22 @@ if __name__ == '__main__':
     parser.add_argument('--begin_order', type=int, default=1, help='begin_order')
     parser.add_argument('--use_future_temporal_feature', type=int, default=0,
                         help='whether to use future_temporal_feature; True 1 False 0')
-    
+
+    # Meta
+    parser.add_argument('--meta_lr', type=float, default=0.0005, help='meta learning rate')
+    parser.add_argument('--inner_lr', type=float, default=0.0005, help='inner learning rate')
+    parser.add_argument('--meta_inner_steps', type=int, default=1, help='meta inner steps')
+    parser.add_argument('--num_tasks', type=int, default=5, help='number of tasks')
+    parser.add_argument('--overlap_ratio', type=float, default=0.15, help='overlap ratio between tasks')
+    parser.add_argument('--meta_optim_type', type=str, default='sgd', help='optimizer type')
+    parser.add_argument('--max_norm', type=float, default=1.0, help='max norm for gradient clipping')
+    parser.add_argument('--first_order', type=int, default=1, help='first order approximation; True 1 False 0')
+    parser.add_argument('--model_per_task', type=int, default=0, help='separate model for each task; True 1 False 0')
+    parser.add_argument('--meta_type', type=str, default='all', help='meta learning type')
+    parser.add_argument('--weighting_type', type=str, default='softmax', help='type of weighting for auxi loss, options: [softmax, minmax]')
+    parser.add_argument('--hyper_dim', type=int, default=2048, help='dimension of hypernet')
+    parser.add_argument('--sample_attn', type=int, default=0, help='sample attention; True 1 False 0')
+
     args = parser.parse_args()
 
     fix_seed = args.fix_seed

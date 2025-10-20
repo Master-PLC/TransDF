@@ -2,6 +2,9 @@ import os
 import shutil
 
 import torch
+import torch.nn as nn
+from torch import optim
+from data_provider.data_factory import data_provider
 from models import MODEL_DICT
 from torch.utils.tensorboard import SummaryWriter
 from utils.tools import pv
@@ -24,7 +27,17 @@ class Exp_Basic(object):
         self.output_vis = args.output_vis
 
     def _build_model(self):
-        raise NotImplementedError
+        model = self.model_dict[self.args.model].Model(self.args).float()
+
+        pretrain_model_path = self.args.pretrain_model_path
+        if pretrain_model_path and os.path.exists(pretrain_model_path):
+            print(f'Loading pretrained model from {pretrain_model_path}')
+            state_dict = torch.load(pretrain_model_path)
+            model.load_state_dict(state_dict, strict=False)
+
+        if self.args.use_multi_gpu and self.args.use_gpu:
+            model = nn.DataParallel(model, device_ids=self.args.device_ids)
+        return model
 
     def _acquire_device(self):
         if self.args.use_gpu:
@@ -51,8 +64,38 @@ class Exp_Basic(object):
 
         return SummaryWriter(log_dir)
 
-    def _get_data(self):
-        pass
+    def _get_data(self, flag):
+        data_set, data_loader = data_provider(self.args, flag)
+        return data_set, data_loader
+
+    def _select_optimizer(self, model=None, lr=None, optim_type=None):
+        if model is None:
+            model = self.model
+        if lr is None:
+            lr = self.args.learning_rate
+        if optim_type is None:
+            optim_type = self.args.optim_type
+        if optim_type == 'adam':
+            optim_class = optim.Adam
+        elif optim_type == 'adamw':
+            optim_class = optim.AdamW
+        elif optim_type == 'sgd':
+            optim_class = optim.SGD
+        model_optim = optim_class(model.parameters(), lr=lr)
+        return model_optim
+
+    def _select_criterion(self, loss_type=None):
+        loss_type = loss_type or self.args.loss
+        loss_type = loss_type.lower()
+        if loss_type == 'mse':
+            criterion = nn.MSELoss()
+        elif loss_type == 'mae':
+            criterion = nn.L1Loss()
+        elif loss_type == 'huber':
+            criterion = nn.SmoothL1Loss()
+        else:
+            criterion = loss_type
+        return criterion
 
     def vali(self):
         pass

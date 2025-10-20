@@ -9,8 +9,25 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import Subset
 
 plt.switch_backend('agg')
+
+
+def disable_grad(m):
+    if isinstance(m, nn.Module):
+        for p in m.parameters():
+            p.requires_grad = False
+    elif isinstance(m, nn.Parameter):
+        m.requires_grad = False
+
+
+def enable_grad(m):
+    if isinstance(m, nn.Module):
+        for p in m.parameters():
+            p.requires_grad = True
+    elif isinstance(m, nn.Parameter):
+        m.requires_grad = True
 
 
 def adjust_learning_rate(optimizer, epoch, args):
@@ -120,25 +137,38 @@ class EarlyStopping:
         self.val_loss_min = np.Inf
         self.delta = delta
 
-    def __call__(self, val_loss, model, path):
+    def __call__(self, val_loss, model, path, **kwargs):
+        # 如果val_loss为nan或inf，直接记为一次count
+        if np.isnan(val_loss) or np.isinf(val_loss):
+            self.counter += 1
+            print(f'Validation loss is NaN or Inf. EarlyStopping counter: \033[91m{self.counter} out of {self.patience}\033[0m')
+            if self.counter >= self.patience:
+                self.early_stop = True
+            return False
+
         score = -val_loss
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, path)
+            self.save_checkpoint(val_loss, model, path, **kwargs)
+            return True
         elif score < self.best_score + self.delta:
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            print(f'EarlyStopping counter: \033[91m{self.counter} out of {self.patience}\033[0m')
             if self.counter >= self.patience:
                 self.early_stop = True
+            return False
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, path)
+            self.save_checkpoint(val_loss, model, path, **kwargs)
             self.counter = 0
+            return True
 
-    def save_checkpoint(self, val_loss, model, path):
+    def save_checkpoint(self, val_loss, model, path, **kwargs):
         if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model ...')
+            print(f'Validation loss decreased \033[92m({self.val_loss_min:.6f} --> {val_loss:.6f})\033[0m. Saving model ...')
         torch.save(model.state_dict(), os.path.join(path, 'checkpoint.pth'))
+        for key, value in kwargs.items():
+            torch.save(value, os.path.join(path, f'{key}.pth'))
         self.val_loss_min = val_loss
 
 
@@ -172,6 +202,24 @@ def visual(true, preds=None, name='./pic/test.pdf'):
     plt.legend()
     plt.tight_layout()
     plt.savefig(name, bbox_inches='tight')
+
+
+def plot_weight_dist(weights, save_path=None):
+    f = plt.figure(dpi=300, figsize=(8, 3))  # 如果只画一条线，就用红色，高改为3->2.5
+    f.subplots_adjust(top=0.9, left=0.1, right=0.9, bottom=0.2)
+    ax = f.add_subplot(1, 1, 1)
+    plt.bar(range(len(weights)), weights)
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close(f)
+    else:
+        return f
+
+
+def log_weight(writer, weights, tag, step):
+    f = plot_weight_dist(weights)
+    writer.add_figure(tag, f, step)
+    plt.close(f)
 
 
 def adjustment(gt, pred):
@@ -236,3 +284,53 @@ def ensure_path(path):
 def pv(msg, verbose):
     if verbose:
         print(msg)
+
+
+def split_dataset_with_overlap(dataset, n, r):
+    """
+    将 dataset 分成 n 份，每份和下一份重叠 r (0<=r<1) 比例的元素。
+    返回 List[Subset]，每个 Subset 可直接喂 DataLoader。
+    """
+    length = len(dataset)
+    if not (0 <= r < 1):
+        raise ValueError("r 必须在 [0, 1) 范围内")
+    if n <= 0 or length < n:
+        raise ValueError("n 参数不合法")
+
+    part_len = int((length + (n - 1) * r) / n)
+    if part_len <= 0:
+        raise ValueError("每份长度过小")
+    overlap_len = int(part_len * r)
+
+    splits = []
+    for i in range(n):
+        start = i * (part_len - overlap_len)
+        end   = start + part_len
+        if end > length:
+            end = length
+        splits.append(Subset(dataset, list(range(start, end))))
+    return splits
+
+
+def split_dataset(dataset, r):
+    """
+    将 dataset 分成两份，比例为 r:(1-r)。
+    返回 List[Subset]，每个 Subset 可直接喂 DataLoader。
+    """
+    length = len(dataset)
+    if not (0 < r < 1):
+        raise ValueError("r 必须在 (0, 1) 范围内")
+
+    len1 = int(length * r)
+    return Subset(dataset, list(range(0, len1))), Subset(dataset, list(range(len1, length)))
+
+
+def clip_grads(grads, max_norm):
+    valid_grads = [g for g in grads if g is not None]
+    if len(valid_grads) == 0:
+        return grads
+    total_norm = torch.norm(torch.stack([g.norm() for g in valid_grads]))
+    if total_norm > max_norm:
+        scale = max_norm / (total_norm + 1e-6)
+        return [g * scale if g is not None else None for g in grads]
+    return grads

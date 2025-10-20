@@ -7,9 +7,7 @@ import yaml
 from copy import deepcopy
 import torch
 import torch.nn as nn
-from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from torch import optim
 from utils.dilate_loss import dilate_loss
 from utils.dilate_loss_cuda import DilateLossCUDA
 from utils.soft_dtw_cuda import SoftDTW
@@ -28,35 +26,6 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         super().__init__(args)
         self.pred_len = args.pred_len
         self.label_len = args.label_len
-
-    def _build_model(self):
-        model = self.model_dict[self.args.model].Model(self.args).float()
-
-        pretrain_model_path = self.args.pretrain_model_path
-        if pretrain_model_path and os.path.exists(pretrain_model_path):
-            print(f'Loading pretrained model from {pretrain_model_path}')
-            state_dict = torch.load(pretrain_model_path)
-            model.load_state_dict(state_dict, strict=False)
-
-        if self.args.use_multi_gpu and self.args.use_gpu:
-            model = nn.DataParallel(model, device_ids=self.args.device_ids)
-        return model
-
-    def _get_data(self, flag):
-        data_set, data_loader = data_provider(self.args, flag)
-        return data_set, data_loader
-
-    def _select_optimizer(self):
-        if self.args.optim_type == 'adam':
-            optim_class = optim.Adam
-        elif self.args.optim_type == 'adamw':
-            optim_class = optim.AdamW
-        model_optim = optim_class(self.model.parameters(), lr=self.args.learning_rate)
-        return model_optim
-
-    def _select_criterion(self):
-        criterion = nn.MSELoss()
-        return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
         total_loss = []

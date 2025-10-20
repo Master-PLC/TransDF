@@ -42,14 +42,6 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
         return model
 
-    def _get_data(self, flag):
-        data_set, data_loader = data_provider(self.args, flag)
-        return data_set, data_loader
-
-    def _select_optimizer(self):
-        model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
-        return model_optim
-
     def _select_criterion(self, loss_name='SMAPE'):
         if loss_name == 'MSE':
             return nn.MSELoss()
