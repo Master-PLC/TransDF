@@ -1,16 +1,16 @@
-# TransDF: Time-series Forecasting Needs Transformed Label Alignment
+# Time-o1: Time-series Forecasting Needs Transformed Label Alignment
 
 
-<h3 align="center">Welcome to TransDF</h3>
+<h3 align="center">Welcome to Time-o1</h3>
 
 <p align="center"><i>Enhancing Time-series forecasting performance with simple transformation.</i></p>
 
 
-The repo is the official implementation for the paper: [TransDF: Time-series Forecasting Needs Transformed Label Alignment](https://openreview.net/forum?id=RxWILaXuhb).
+The repo is the official implementation for the paper: [Time-o1: Time-series Forecasting Needs Transformed Label Alignment](https://openreview.net/forum?id=RxWILaXuhb).
 
 We provide the running scripts to reproduce experiments in `/scripts`, which covers two mainstream tasks: **long-term forecasting and short-term forecasting**.
 
-🚩**News** (2025.5) The implementation of TransDF is released, with scripts on two tasks.
+🚩**News** (2025.5) The implementation of Time-o1 is released, with scripts on two tasks.
 
 ## Usage
 
@@ -46,7 +46,7 @@ class Dataset_ETT_hour_PCA(Dataset_ETT_hour):
         print(f"PCA weights shape: {self.weights.shape}")
 ```
 
-1. Implement TransDF by adapting the following script in your pipeline
+1. Implement Time-o1 by adapting the following script in your pipeline
 ```python
 from utils.polynominal import Basis_Cache
 
@@ -69,8 +69,8 @@ loss_trans = (pca_torch(outputs, **kwargs) - pca_torch(batch_y, **kwargs)).abs()
 2. Install Python 3.10 and pytorch 2.4.0. For convenience, execute the following commands.
 
 ```bash
-conda create -n transdf python=3.10
-conda activate transdf
+conda create -n timeo1 python=3.10
+conda activate timeo1
 
 # we recommend using conda to install pytorch and torch-geometric dependencies
 conda install pytorch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0  pytorch-cuda=11.8 -c pytorch -c nvidia
@@ -106,7 +106,7 @@ bash ./scripts/long_term_forecast/MICN.sh
 bash ./scripts/short_term_forecast/Fredformer.sh
 ```
 
-5. Apply TransDF to your own model.
+5. Apply Time-o1 to your own model.
 
 - Add the model file to the folder `./models`. You can follow the `./models/Fredformer.py`.
 - Include the newly added model in the `./models/__init__.py.MODEL_DICT`.
